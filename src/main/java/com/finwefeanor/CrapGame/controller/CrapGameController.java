@@ -107,7 +107,7 @@ public class CrapGameController {
             while (true) {
                 diceRoll = rollDice();
 
-                // Construct a RollResult instance for this roll
+                // Create a RollResult instance for this roll
                 RollResult currentRoll = new RollResult();
                 currentRoll.setDice1(diceRoll[0]);
                 currentRoll.setDice2(diceRoll[1]);
