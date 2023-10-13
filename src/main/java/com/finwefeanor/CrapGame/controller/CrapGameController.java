@@ -1,8 +1,9 @@
 package com.finwefeanor.CrapGame.controller;
 
-import com.finwefeanor.CrapGame.dto.MultiRoundRequestDTO;
-import com.finwefeanor.CrapGame.dto.MultiRoundResponseDTO;
+import com.finwefeanor.CrapGame.dto.MultiRoundRequest;
+import com.finwefeanor.CrapGame.dto.MultiRoundResponse;
 import com.finwefeanor.CrapGame.model.CrapGameResult;
+import com.finwefeanor.CrapGame.model.RollResult;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,7 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/play")
 public class CrapGameController {
-    int roundCounter;
+    private int roundCounter;
 
     @GetMapping("/game")
     public ResponseEntity<CrapGameResult> getResult() {
@@ -21,16 +22,33 @@ public class CrapGameController {
         return new ResponseEntity<>(result, HttpStatus.OK);
     }
 
+    /*
+
+ * A single game can involve multiple dice rolls, but it has
+ * one of three outcomes: a win on the first roll, a win on a subsequent roll,
+ * or a loss. This multi method executes n number of these games and collects
+ * the results.
+     */
     @PostMapping("/multi")
-    public ResponseEntity<MultiRoundResponseDTO> playMultipleRounds(@RequestBody MultiRoundRequestDTO request) {
-        MultiRoundResponseDTO response = new MultiRoundResponseDTO();
+    public ResponseEntity<MultiRoundResponse> playMultipleRounds(@RequestBody MultiRoundRequest request) {
+
+        // Create a response object to collate and store the results of all played games.
+        MultiRoundResponse response = new MultiRoundResponse();
+
         List<CrapGameResult> gameResults = new ArrayList<>();
 
         int totalStake = 0;
         int totalWin = 0;
 
-        for (int i = 0; i < request.getRounds(); i++) {
+        // Iterate for the number of games the player wishes to play.
+        for (int i = 0; i < request.getGames(); i++) {
+            // For each iteration, play a single game of Craps and store the result.
             CrapGameResult gameResult = playSingleRound();
+
+            gameResult.setGameId(i + 1);
+
+
+            // Update the running totals for stake and winnings.
             totalStake += gameResult.getStake();
             totalWin += gameResult.getWinning();
             gameResults.add(gameResult);
@@ -43,59 +61,9 @@ public class CrapGameController {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-//    private CrapGameResult playSingleRound() {
-//        CrapGameResult result = new CrapGameResult();
-//        result.setDice1((int)(Math.random() * 6 ) +1);
-//        result.setDice2((int)(Math.random() * 6 ) +1);
-//
-//        int dice1Value = result.getDice1();
-//        int dice2Value = result.getDice2();
-//        int totalSum = dice1Value + dice2Value;
-//
-//        //first roll
-//        if (totalSum == 7 || totalSum == 11) {
-//            result.setMessage("You won on the first throw! Wonderful");
-//            result.setWinning(result.getStake() + 1);
-//            return result;
-//        }
-//        else if (totalSum == 2 || totalSum == 3 || totalSum == 12) {
-//            result.setMessage("You lost on the first throw! Unlucky");
-//            result.setWinning(0);
-//            return result;
-//        }
-//        else {
-//            int playerPoint = totalSum;
-//
-//            do {
-//                result.setDice1((int)(Math.random() * 6 ) +1);
-//                result.setDice2((int)(Math.random() * 6 ) +1);
-//                int dice1NextValue = result.getDice1();
-//                int dice2NextValue = result.getDice2();
-//                totalSum = dice1NextValue + dice2NextValue;
-//                result.setMessage("Keep rolling the dices...");
-//
-//                System.out.println("Rolled: " + dice1Value + " + " + dice2Value + " = " + totalSum);
-//                System.out.println("Player Point: " + playerPoint);
-//
-//                if (totalSum == playerPoint) {
-//                    result.setMessage("You Win on the next round, Congrats!");
-//                    result.setWinning(result.getStake() + 1);
-//                    return result;
-//                } else if (totalSum == 7) {
-//                result.setMessage("Oh no! You rolled a 7. on the next round, You Lost!");
-//                result.setWinning(0);
-//                return result;
-//                }
-//
-//            } while (true);
-//            //second or next rounds
-//
-//        }
-//    }
-
     private int[] rollDice() {
         int[] diceRoll = new int[2];
-        diceRoll[0] = (int)(Math.random() * 6) + 1;
+        diceRoll[0] = (int)(Math.random() * 6) + 1; //random starts from zero
         diceRoll[1] = (int)(Math.random() * 6) + 1;
         return diceRoll;
     }
@@ -104,11 +72,14 @@ public class CrapGameController {
 
         // Increment the Counter at the start of each new round
         roundCounter++;
+        // Reset the rollCounter for each new game
+        int rollCounter = 1;
 
-        // Starting delimiter
         System.out.println("\n---------- Starting Round " + roundCounter + " ----------");
 
         CrapGameResult result = new CrapGameResult();
+
+        result.setRolls(new ArrayList<RollResult>());
 
         int[] diceRoll = rollDice();
         result.setDice1(diceRoll[0]);
@@ -116,7 +87,7 @@ public class CrapGameController {
 
         int totalSum = diceRoll[0] + diceRoll[1];
 
-        System.out.println("Round " + roundCounter + " - First Roll: " + diceRoll[0] + " + " + diceRoll[1] + " = " + totalSum);
+        System.out.println("Game " + roundCounter + " - Roll " + rollCounter + ": " + diceRoll[0] + " + " + diceRoll[1] + " = " + totalSum);
 
         //first roll
         if (totalSum == 7 || totalSum == 11) {
@@ -130,76 +101,44 @@ public class CrapGameController {
         } else {
             int playerPoint = totalSum;
 
+            // Print player point once after it's set
+            System.out.println("PlayerPoint for Game " + roundCounter + " is : " + playerPoint);
+
             while (true) {
                 diceRoll = rollDice();
-                result.setDice1(diceRoll[0]);
-                result.setDice2(diceRoll[1]);
-                totalSum = diceRoll[0] + diceRoll[1];
 
-                System.out.println("Round " + roundCounter + " - Subsequent Roll: " + diceRoll[0] + " + " + diceRoll[1] + " = " + totalSum);
-                System.out.println("Round " + roundCounter + " - Player Point: " + playerPoint);
+                // Construct a RollResult instance for this roll
+                RollResult currentRoll = new RollResult();
+                currentRoll.setDice1(diceRoll[0]);
+                currentRoll.setDice2(diceRoll[1]);
+                totalSum = diceRoll[0] + diceRoll[1]; ;
+                currentRoll.setMessage("Continue to roll");
+                currentRoll.setRollNumber(rollCounter);
+                currentRoll.setPlayerPointNumber(playerPoint);
 
-                if (totalSum == 7) {
-                    result.setMessage("Oh no! You rolled a 7. on the next round, You Lost!");
+                currentRoll.setSum(totalSum);
+
+                rollCounter++; // Increment roll counter
+                System.out.println("Game " + roundCounter + " - Roll " + rollCounter + ": " + diceRoll[0] + " + " + diceRoll[1] + " = " + totalSum);
+
+                // Always add the currentRoll to result's rolls list
+                result.getRolls().add(currentRoll);
+
+                if (totalSum == 7)  {
+                    currentRoll.setMessage("Oh no! You rolled a 7 on this roll, and your Player Point was " + playerPoint + ", You Lost!");
+                    result.setMessage("You lost this round by rolling a 7, you need to match the Player Point");
                     result.setWinning(0);
                     return result;
-                } else if (totalSum == playerPoint) {
-                    result.setMessage("You Win on the next round, Congrats!");
+                }
+                else if (totalSum == playerPoint) {
+                    currentRoll.setMessage("You matched the roll sum with your player point of " + playerPoint + " on this roll. Congrats!");
+                    result.setMessage("You have Won this round by matching the Player Point! Congrats!");
                     result.setWinning(result.getStake() + 1);
                     return result;
                 }
             }
         }
     }
-
-
-//    private CrapGameResult playSingleRound() {
-//        CrapGameResult result = new CrapGameResult();
-//
-//        int dice1Value = (int)(Math.random() * 6) + 1;
-//        int dice2Value = (int)(Math.random() * 6) + 1;
-//        result.setDice1(dice1Value);
-//        result.setDice2(dice2Value);
-//
-//        int totalSum = dice1Value + dice2Value;
-//
-//        // Check for immediate win or loss
-//        if (totalSum == 7 || totalSum == 11) {
-//            result.setMessage("You win on the first throw! Wonderful");
-//            result.setWinning(result.getStake() + 1);
-//            return result;
-//        } else if (totalSum == 2 || totalSum == 3 || totalSum == 12) {
-//            result.setMessage("You lost on the first throw! Unlucky");
-//            return result;
-//        }
-//
-//        // If not an immediate win/loss, set the player's point
-//        int playerPoint = totalSum;
-//
-//        // Loop for subsequent rolls
-//        while (true) {
-//            dice1Value = (int)(Math.random() * 6) + 1;
-//            dice2Value = (int)(Math.random() * 6) + 1;
-//            totalSum = dice1Value + dice2Value;
-//
-//            result.setDice1(dice1Value);
-//            result.setDice2(dice2Value);
-//
-//            // Debugging messages
-//            System.out.println("Rolled: " + dice1Value + " + " + dice2Value + " = " + totalSum);
-//            System.out.println("Player Point: " + playerPoint);
-//
-//            if (totalSum == 7) {
-//                result.setMessage("Oh no! You rolled a 7. You Lost!");
-//                result.setWinning(0);
-//                return result;
-//            }  else if (totalSum == playerPoint) {
-//                result.setMessage("You Win! Congrats!");
-//                result.setWinning(2);
-//                return result;
-//            }
-//        }
-//    }
 
 
 }
